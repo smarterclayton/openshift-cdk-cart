@@ -4,11 +4,7 @@ require 'uri'
 require 'safe_yaml'
 require 'delegate'
 require 'haml'
-
-configure do
-  set :bind, ENV['OPENSHIFT_CDK_IP'] || '0.0.0.0'
-  set :port, ENV['OPENSHIFT_CDK_PORT'] || '8080'
-end
+require 'forwardable'
 
 helpers do
   def latest_cart_manifest_url
