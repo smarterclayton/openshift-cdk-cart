@@ -1,0 +1,49 @@
+%h1 OpenShift Cartridge Development Kit
+
+- if cart
+  %h2 NOW BUILDING: #{cart.display_name} (#{cart.name}), #{cart.cart_version}
+
+  %p
+    %a{:href => latest_cart_manifest_url} View latest manifest
+
+  %p Deploy now with:
+
+  %pre
+    rhc create-app mynewcart #{latest_cart_manifest_url}
+
+  %p
+    You can also deploy an older version of your cartridge by adding a commit ID to the path.  
+
+  %pre
+    rhc create-app mynewcart #{cart_manifest_url(':commit')}
+
+    %p 
+      For reference, here are your most recent commits.  Copy the link to show the manifest for that version.
+
+    %table
+      %thead
+        %tr
+          %th Commit
+          %th Author
+          %th Date
+          %th Subject
+      - cart.recent_commits(30).each do |col|
+        %tr
+          %td
+            %a{:href => cart_manifest_url(col[0])}= col[1]
+          %td= col[2]
+          %td= col[3]
+          %td= col[4]
+
+- else
+  %p 
+    This application helps you build carts. To get started, deploy an instance of this cart to OpenShift with:
+
+  %pre
+    rhc create-app cdk http://cdk-claytondev.rhcloud.com/cartridge.yml
+
+  %p
+    Once you've deployed, you should see this page.  You can check your changes into the application via Git, and then deploy the latest via:
+
+  %pre
+    rhc create-app mynewcart #{latest_cart_manifest_url}
