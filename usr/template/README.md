@@ -1,0 +1,1 @@
+OpenShift Cartridge Development Kit - makes creating carts easy!
