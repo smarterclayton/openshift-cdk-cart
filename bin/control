@@ -78,13 +78,12 @@ function stop() {
 function restart() {
     if [ -f $OPENSHIFT_CDK_DIR/pid/cdk.pid ]; then
         cdk_pid=$( cat $OPENSHIFT_CDK_DIR/pid/cdk.pid 2> /dev/null )
-        kill -USR2 $cdk_pid
-    else
-        start()
+        /bin/kill -USR2 "$cdk_pid"
     fi
 }
 
 function build() {
+    echo
 }
 
 function post-deploy() {
