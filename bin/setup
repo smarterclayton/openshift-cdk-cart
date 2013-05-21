@@ -9,3 +9,8 @@ for dir in logs tmp pid cache; do
 done
 popd > /dev/null
 
+### Force SCL to be enabled
+dirname $(scl enable ruby193 "which ruby")    > $OPENSHIFT_CDK_DIR/env/OPENSHIFT_RUBY_PATH_ELEMENT
+scl enable ruby193 "printenv LD_LIBRARY_PATH" > $OPENSHIFT_CDK_DIR/env/LD_LIBRARY_PATH
+scl enable ruby193 "printenv MANPATH"         > $OPENSHIFT_CDK_DIR/env/MANPATH
+

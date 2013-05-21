@@ -67,6 +67,7 @@ class CartInstance
   IllegalCommitArgument = Class.new(StandardError)
   UnknownCommit = Class.new(StandardError)
   ManifestNotFound = Class.new(StandardError)
+  EmptyManifest = Class.new(StandardError)
 
   COMMIT_ID = %r(\A[a-zA-Z_\-0-9\./]{1,50}\Z)
 
@@ -119,7 +120,8 @@ class CartInstance
 
   class Manifest
     def self.parse(contents)
-      new(YAML.load(contents, nil, :safe => true, :raise_on_unknown_tag => true))
+      yaml = YAML.load(contents, nil, :safe => true, :raise_on_unknown_tag => true) or raise EmptyManifest
+      new(yaml)
     end
 
     attr_accessor :yaml

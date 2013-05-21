@@ -29,14 +29,14 @@ function start() {
     {
         echo "`date +"$FMT"`: Starting application '$OPENSHIFT_APP_NAME'..."
 
-        bundle install --path $OPENSHIFT_DATA_DIR/gems --gemfile $OPENSHIFT_CDK_DIR/lib/Gemfile
+        /usr/bin/scl enable ruby193 "bundle install --path $OPENSHIFT_DATA_DIR/gems --gemfile $OPENSHIFT_CDK_DIR/Gemfile"
         ret=$?
-        if [ $ret -neq 0 ]; then
+        if [ $ret -ne 0 ]; then
             echo "Unable to bundle install, cannot start CDK"
             exit $ret
         fi
 
-        nohup "BUNDLE_GEMFILE=$OPENSHIFT_CDK_DIR/lib/Gemfile bundle exec puma --bind tcp://$OPENSHIFT_CDK_IP --port $OPENSHIFT_CDK_PORT $OPENSHIFT_CDK_DIR/lib/config.ru" >> $logf 2>&1 &
+        nohup /usr/bin/scl enable ruby193 "BUNDLE_GEMFILE=$OPENSHIFT_CDK_DIR/Gemfile bundle exec '$OPENSHIFT_DATA_DIR/gems/ruby/1.9.1/bin/puma --bind tcp://$OPENSHIFT_CDK_IP:$OPENSHIFT_CDK_PORT -I$OPENSHIFT_CDK_DIR/lib $OPENSHIFT_CDK_DIR/lib/config.ru'" >> $logf 2>&1 &
 
         ret=$?
         npid=$!
@@ -78,8 +78,13 @@ function stop() {
 function restart() {
     if [ -f $OPENSHIFT_CDK_DIR/pid/cdk.pid ]; then
         cdk_pid=$( cat $OPENSHIFT_CDK_DIR/pid/cdk.pid 2> /dev/null )
-        /bin/kill -USR2 "$cdk_pid"
     fi
+
+    if [ -n "$cdk_pid" ]; then
+        /bin/kill -USR2 "$cdk_pid"
+    else
+        start
+    fi    
 }
 
 function build() {

@@ -1,3 +1,3 @@
-require './cdk_server'
+require 'cdk_server'
 
 run Sinatra::Application
