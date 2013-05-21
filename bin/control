@@ -2,11 +2,12 @@
 
 STOPTIMEOUT=10
 FMT="%a %b %d %Y %H:%M:%S GMT%z (%Z)"
+PUMA_STATE=$OPENSHIFT_CDK_DIR/pid/puma.state
+PUMA_BIN=$OPENSHIFT_DATA_DIR/gems/ruby/1.9.1/bin
 
-function is_cdk_service_running() {
-    if [ -f $OPENSHIFT_CDK_DIR/pid/cdk.pid ]; then
-        cdk_pid=$( cat $OPENSHIFT_CDK_DIR/pid/cdk.pid 2> /dev/null )
-        if `ps --pid $cdk_pid 2>&1`; then
+function is_puma_running() {
+    if [ -f $PUMA_STATE ]; then
+        if (/usr/bin/scl enable ruby193 "$PUMA_BIN/pumactl -S $PUMA_STATE status"); then
             return 0
         fi
     fi
@@ -14,8 +15,18 @@ function is_cdk_service_running() {
     return 1
 }
 
+function install_gems() {
+    /usr/bin/scl enable ruby193 "bundle install --path $OPENSHIFT_DATA_DIR/gems --gemfile $OPENSHIFT_CDK_DIR/Gemfile"
+
+    ret=$?
+    if [ $ret -ne 0 ]; then
+        echo "Unable to bundle install, CDK cannot run"
+        exit $ret
+    fi    
+}
+
 function status() {
-    if [ is_cdk_service_running ]; then
+    if [ is_puma_running ]; then
         client_result "Application is running"
     else
         client_result "Application is not running"
@@ -24,25 +35,24 @@ function status() {
 
 
 function start() {
+    if (is_puma_running); then
+        exit 0;
+    fi
+
+    install_gems
+
     logf="$OPENSHIFT_CDK_DIR/logs/cdk.log"
     pushd "$OPENSHIFT_REPO_DIR" > /dev/null
     {
         echo "`date +"$FMT"`: Starting application '$OPENSHIFT_APP_NAME'..."
 
-        /usr/bin/scl enable ruby193 "bundle install --path $OPENSHIFT_DATA_DIR/gems --gemfile $OPENSHIFT_CDK_DIR/Gemfile"
+        if (is_puma_running); then
+            exit 0;
+        fi
+        nohup /usr/bin/scl enable ruby193 "BUNDLE_GEMFILE=$OPENSHIFT_CDK_DIR/Gemfile bundle exec '$PUMA_BIN/puma --bind tcp://$OPENSHIFT_CDK_IP:$OPENSHIFT_CDK_PORT -I$OPENSHIFT_CDK_DIR/lib -S $PUMA_STATE $OPENSHIFT_CDK_DIR/lib/config.ru'" >> $logf 2>&1 &
+
         ret=$?
         if [ $ret -ne 0 ]; then
-            echo "Unable to bundle install, cannot start CDK"
-            exit $ret
-        fi
-
-        nohup /usr/bin/scl enable ruby193 "BUNDLE_GEMFILE=$OPENSHIFT_CDK_DIR/Gemfile bundle exec '$OPENSHIFT_DATA_DIR/gems/ruby/1.9.1/bin/puma --bind tcp://$OPENSHIFT_CDK_IP:$OPENSHIFT_CDK_PORT -I$OPENSHIFT_CDK_DIR/lib $OPENSHIFT_CDK_DIR/lib/config.ru'" >> $logf 2>&1 &
-
-        ret=$?
-        npid=$!
-        if [ $ret -eq 0 ]; then
-            echo "$npid" > "$OPENSHIFT_CDK_DIR/pid/cdk.pid"
-        else
             echo "Application '$OPENSHIFT_APP_NAME' failed to start - $ret" 1>&2
             exit $ret
         fi
@@ -50,41 +60,26 @@ function start() {
 }
 
 function stop() {
-    if [ -f $OPENSHIFT_CDK_DIR/pid/cdk.pid ]; then
-        cdk_pid=$( cat $OPENSHIFT_CDK_DIR/pid/cdk.pid 2> /dev/null )
-    fi
-
-    if [ -n "$cdk_pid" ]; then
-        logf="$OPENSHIFT_CDK_DIR/logs/cdk.log"
-        echo "`date +"$FMT"`: Stopping application '$OPENSHIFT_APP_NAME' ..." >> $logf
-        /bin/kill $cdk_pid
-        ret=$?
-        if [ $ret -eq 0 ]; then
-            TIMEOUT="$STOPTIMEOUT"
-            while [ $TIMEOUT -gt 0 ] && is_cdk_service_running ; do
-                /bin/kill -0 "$cdk_pid" >/dev/null 2>&1 || break
-                sleep 1
-                let TIMEOUT=${TIMEOUT}-1
-            done
+    if (is_puma_running); then
+        if (/usr/bin/scl enable ruby193 "$PUMA_BIN/pumactl -S $PUMA_STATE stop"); then
+            rm -f $PUMA_STATE
+            exit 0
         fi
-
-        echo "`date +"$FMT"`: Stopped application '$OPENSHIFT_APP_NAME'" >> $logf
-        rm -f $OPENSHIFT_CDK_DIR/pid/cdk.pid
-    else
-        echo "Warning: Application '$OPENSHIFT_APP_NAME' server exists without a pid file.  Use force-stop to kill." 1>&2
+        rm -f $PUMA_STATE
     fi
 }
 
 function restart() {
-    if [ -f $OPENSHIFT_CDK_DIR/pid/cdk.pid ]; then
-        cdk_pid=$( cat $OPENSHIFT_CDK_DIR/pid/cdk.pid 2> /dev/null )
-    fi
-
-    if [ -n "$cdk_pid" ]; then
-        /bin/kill -USR2 "$cdk_pid"
+    if (is_puma_running); then
+        /usr/bin/scl enable ruby193 "$PUMA_BIN/pumactl -S $PUMA_STATE restart"
+        ret=$?
+        if [ $ret -ne 0 ]; then
+            echo "Application '$OPENSHIFT_APP_NAME' failed to restart - $ret" 1>&2
+            exit $ret
+        fi 
     else
         start
-    fi    
+    fi
 }
 
 function build() {
