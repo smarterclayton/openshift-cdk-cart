@@ -7,7 +7,7 @@ PUMA_BIN=$OPENSHIFT_DATA_DIR/gems/ruby/1.9.1/bin
 
 function is_puma_running() {
     if [ -f $PUMA_STATE ]; then
-        if (/usr/bin/scl enable ruby193 "$PUMA_BIN/pumactl -S $PUMA_STATE status"); then
+        if (/usr/bin/scl enable ruby193 "BUNDLE_GEMFILE=$OPENSHIFT_CDK_DIR/Gemfile bundle exec '$PUMA_BIN/pumactl -S $PUMA_STATE status'"); then
             return 0
         fi
     fi
@@ -15,8 +15,12 @@ function is_puma_running() {
     return 1
 }
 
+function pumactl() {
+    /usr/bin/scl enable ruby193 "BUNDLE_GEMFILE=$OPENSHIFT_CDK_DIR/Gemfile bundle exec '$PUMA_BIN/pumactl -S $PUMA_STATE $1'"
+}
+
 function install_gems() {
-    /usr/bin/scl enable ruby193 "bundle install --path $OPENSHIFT_DATA_DIR/gems --gemfile $OPENSHIFT_CDK_DIR/Gemfile"
+    /usr/bin/scl enable ruby193 "bundle --path $OPENSHIFT_DATA_DIR/gems --gemfile $OPENSHIFT_CDK_DIR/Gemfile"
 
     ret=$?
     if [ $ret -ne 0 ]; then
@@ -35,11 +39,11 @@ function status() {
 
 
 function start() {
+    install_gems
+
     if (is_puma_running); then
         exit 0;
     fi
-
-    install_gems
 
     logf="$OPENSHIFT_CDK_DIR/logs/cdk.log"
     pushd "$OPENSHIFT_REPO_DIR" > /dev/null
@@ -61,7 +65,7 @@ function start() {
 
 function stop() {
     if (is_puma_running); then
-        if (/usr/bin/scl enable ruby193 "$PUMA_BIN/pumactl -S $PUMA_STATE stop"); then
+        if (pumactl stop); then
             rm -f $PUMA_STATE
             exit 0
         fi
@@ -71,7 +75,7 @@ function stop() {
 
 function restart() {
     if (is_puma_running); then
-        /usr/bin/scl enable ruby193 "$PUMA_BIN/pumactl -S $PUMA_STATE restart"
+        pumactl restart
         ret=$?
         if [ $ret -ne 0 ]; then
             echo "Application '$OPENSHIFT_APP_NAME' failed to restart - $ret" 1>&2
