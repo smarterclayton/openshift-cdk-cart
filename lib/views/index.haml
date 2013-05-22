@@ -4,7 +4,7 @@
   %h2 NOW BUILDING: #{cart.display_name} (#{cart.name}), #{cart.cart_version}
 
   %p
-    %a{:href => latest_cart_manifest_url} View latest manifest
+    %a{:href => latest_cart_manifest_url} View latest manifest from 'master'
 
   %p Deploy now with:
 
@@ -16,24 +16,6 @@
 
   %pre
     rhc create-app mynewcart #{cart_manifest_url(':commit')}
-
-    %p 
-      For reference, here are your most recent commits.  Copy the link to show the manifest for that version.
-
-    %table
-      %thead
-        %tr
-          %th Commit
-          %th Author
-          %th Date
-          %th Subject
-      - cart.recent_commits(30).each do |col|
-        %tr
-          %td
-            %a{:href => cart_manifest_url(col[0])}= col[1]
-          %td= col[2]
-          %td= col[3]
-          %td= col[4]
 
 - else
   %p 
@@ -47,3 +29,70 @@
 
   %pre
     rhc create-app mynewcart #{latest_cart_manifest_url}
+
+%h3 Builds
+
+- if builds.empty?
+  %p There are no builds
+  
+- else
+  %table
+    %thead
+      %tr
+        %th Commit
+        %th Date
+    - builds.each do |build|
+      %tr
+        %td= build
+        %td
+
+%h3 Other versions
+
+%p 
+  Branches
+
+%table
+  %thead
+    %tr
+      %th Branch
+      %th Manifest
+      %th Author
+      %th Date
+      %th Subject
+  - repo.recent_branches(30).each do |col|
+    %tr
+      %td
+        %a{:href => url("/?branch=#{URI.escape(col[1])}")}
+          - if branch == col[1]
+            %strong= col[1]
+          - else
+            = col[1]
+      %td
+        %a{:href => cart_manifest_url(col[0])}= col[2]
+      %td= col[3]
+      %td= col[4]
+      %td= col[5]
+
+%p
+  Showing commits for #{branch}
+
+%table
+  %thead
+    %tr
+      %th Manifest
+      %th Author
+      %th Date
+      %th Subject
+  - repo.recent_commits('master', 30).each do |col|
+    %tr
+      %td
+        %a{:href => cart_manifest_url(col[0])}= col[1]
+      %td= col[2]
+      %td= col[3]
+      %td= col[4]
+
+%p
+  Or access a commit directly:
+%form{:action => url('/manifest'), :method => :post}
+  %input{:type => :text, :style => 'width: 20em', :name => 'commit', :placeholder => 'Commit SHA1, tag, or branch'}
+  %input{:type => :submit, :value => 'Get Manifest'}
