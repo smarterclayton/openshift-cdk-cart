@@ -4,12 +4,45 @@
   %h2 NOW BUILDING: #{cart.display_name} (#{cart.name}), #{cart.cart_version}
 
   %p
-    %a{:href => cart_manifest_url(cart.commit)} The latest manifest from branch <strong>#{branch}</strong>
+    %a{:href => cart_manifest_url(cart.commit)} View cartridge manifest for <strong>#{from}</strong>
 
   %p Deploy now with:
 
   %pre
     rhc create-app mynewcart #{cart_manifest_url(cart.commit)}
+
+  - if cart.buildable?
+
+    %h3 Built Versions
+
+    - if builds.empty?
+      %p There are no builds yet for this cartridge.
+      
+    - else
+      %p Your cartridge has a build script.  The built versions are displayed below.
+
+      %table.table
+        %thead
+          %tr
+            %th Commit
+            %th Tags/Branches
+            %th Date built
+            %th Size
+        - builds.each do |build|
+          %tr
+            %td{:title => build[0]}
+              %a{:href => cart_build_manifest_url(build[0])}= build[0][0,9]
+            %td
+              - if refers = repo.referring_to(build[0])
+                #{refers.join(', ')}
+            %td= build[1]
+            %td= build[2]
+    %form.form-inline{:action => url('/build'), :method => :post}
+      %input{:type => :text, :style => 'width: 20em', :name => 'commit', :placeholder => 'Commit SHA1, tag, or branch'}
+      %input.btn{:type => :submit, :value => 'Build now'}
+
+  - else
+    %p The cartridge on this branch does not have a build script at <code>.openshift/action_hooks/build</code>
 
 - else
   %p 
@@ -23,39 +56,6 @@
 
   %pre
     rhc create-app mynewcart #{latest_cart_manifest_url}
-
-- if cart.buildable?
-
-  %h3 Built Versions
-
-  - if builds.empty?
-    %p There are no builds yet for this cartridge.
-    
-  - else
-    %p Your cartridge has a build script.  The built versions are displayed below.
-
-    %table.table
-      %thead
-        %tr
-          %th Commit
-          %th Tags/Branches
-          %th Date built
-          %th Size
-      - builds.each do |build|
-        %tr
-          %td{:title => build[0]}
-            %a{:href => cart_build_manifest_url(build[0])}= build[0][0,9]
-          %td
-            - if refers = repo.referring_to(build[0])
-              #{refers.join(', ')}
-          %td= build[1]
-          %td= build[2]
-  %form.form-inline{:action => url('/build'), :method => :post}
-    %input{:type => :text, :style => 'width: 20em', :name => 'commit', :placeholder => 'Commit SHA1, tag, or branch'}
-    %input.btn{:type => :submit, :value => 'Build now'}
-
-- else
-  %p The cartridge on this branch does not have a build script at <code>.openshift/action_hooks/build</code>
 
 %h3 Source Versions
 
@@ -73,8 +73,8 @@
   - repo.recent_branches(30).each do |col|
     %tr
       %td
-        %a{:href => url("/?branch=#{URI.escape(col[1])}")}
-          - if branch == col[1]
+        %a{:href => url("/?from=#{URI.escape(col[1])}")}
+          - if from == col[1]
             %strong= col[1]
             &lt;-
           - else
@@ -86,7 +86,7 @@
       %td= col[5]
 
 %p
-  Commit history for branch <strong>#{branch}</strong>
+  Commit log up to <strong>#{from}</strong>
 
 %table.table
   %thead
@@ -95,7 +95,7 @@
       %th Author
       %th Date
       %th Subject
-  - repo.recent_commits('master', 30).each do |col|
+  - repo.recent_commits(from, 30).each do |col|
     %tr
       %td
         %a{:href => cart_manifest_url(col[0])}= col[1]

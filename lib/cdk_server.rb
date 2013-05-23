@@ -57,11 +57,12 @@ helpers do
 end
 
 get '/' do
-  gitrepo = GitRepo.new(repo_path, params[:branch] || 'master')
-  cart = CartInstance.find(gitrepo) rescue nil
+  commit = params[:from] || 'master'
+  gitrepo = GitRepo.new(repo_path, commit)
+  cart = CartInstance.find(gitrepo, commit) rescue nil
   dir = BuildDirectory.new(build_root_dir)
 
-  haml :index, :format => :html5, :locals => {:cart => cart, :repo => gitrepo, :branch => gitrepo.branch, :builds => dir.builds }
+  haml :index, :format => :html5, :locals => {:cart => cart, :repo => gitrepo, :from => commit, :builds => dir.builds }
 end
 
 get '/cartridge.yml' do
