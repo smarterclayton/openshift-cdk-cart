@@ -4,18 +4,12 @@
   %h2 NOW BUILDING: #{cart.display_name} (#{cart.name}), #{cart.cart_version}
 
   %p
-    %a{:href => latest_cart_manifest_url} View latest manifest from 'master'
+    %a{:href => cart_manifest_url(cart.commit)} The latest manifest from branch <strong>#{branch}</strong>
 
   %p Deploy now with:
 
   %pre
-    rhc create-app mynewcart #{latest_cart_manifest_url}
-
-  %p
-    You can also deploy an older version of your cartridge by adding a commit ID to the path.  
-
-  %pre
-    rhc create-app mynewcart #{cart_manifest_url(':commit')}
+    rhc create-app mynewcart #{cart_manifest_url(cart.commit)}
 
 - else
   %p 
@@ -30,28 +24,45 @@
   %pre
     rhc create-app mynewcart #{latest_cart_manifest_url}
 
-%h3 Builds
+- if cart.buildable?
 
-- if builds.empty?
-  %p There are no builds
-  
+  %h3 Built Versions
+
+  - if builds.empty?
+    %p There are no builds yet for this cartridge.
+    
+  - else
+    %p Your cartridge has a build script.  The built versions are displayed below.
+
+    %table.table
+      %thead
+        %tr
+          %th Commit
+          %th Tags/Branches
+          %th Date built
+          %th Size
+      - builds.each do |build|
+        %tr
+          %td{:title => build[0]}
+            %a{:href => cart_build_manifest_url(build[0])}= build[0][0,9]
+          %td
+            - if refers = repo.referring_to(build[0])
+              #{refers.join(', ')}
+          %td= build[1]
+          %td= build[2]
+  %form.form-inline{:action => url('/build'), :method => :post}
+    %input{:type => :text, :style => 'width: 20em', :name => 'commit', :placeholder => 'Commit SHA1, tag, or branch'}
+    %input.btn{:type => :submit, :value => 'Build now'}
+
 - else
-  %table
-    %thead
-      %tr
-        %th Commit
-        %th Date
-    - builds.each do |build|
-      %tr
-        %td= build
-        %td
+  %p The cartridge on this branch does not have a build script at <code>.openshift/action_hooks/build</code>
 
-%h3 Other versions
+%h3 Source Versions
 
 %p 
-  Branches
+  Click any branch name to switch to that branch, or copy the manifest link to paste to OpenShift.
 
-%table
+%table.table
   %thead
     %tr
       %th Branch
@@ -65,6 +76,7 @@
         %a{:href => url("/?branch=#{URI.escape(col[1])}")}
           - if branch == col[1]
             %strong= col[1]
+            &lt;-
           - else
             = col[1]
       %td
@@ -74,9 +86,9 @@
       %td= col[5]
 
 %p
-  Showing commits for #{branch}
+  Commit history for branch <strong>#{branch}</strong>
 
-%table
+%table.table
   %thead
     %tr
       %th Manifest
@@ -92,7 +104,21 @@
       %td= col[4]
 
 %p
-  Or access a commit directly:
-%form{:action => url('/manifest'), :method => :post}
+  You can deploy any version of your cartridge by adding a Git commit SHA1, branch, or tag to the path.  
+
+%pre
+  rhc create-app mynewcart #{cart_manifest_url(':commit_or_tag_or_branch')}
+
+%p
+  Try it now:
+%form.form-inline{:action => url('/manifest'), :method => :post}
   %input{:type => :text, :style => 'width: 20em', :name => 'commit', :placeholder => 'Commit SHA1, tag, or branch'}
-  %input{:type => :submit, :value => 'Get Manifest'}
+  %input.btn{:type => :submit, :value => 'Get Manifest'}
+
+%footer{:style => 'margin-bottom: 40px; margin-top: 20px;'}
+  %hr
+  %p 
+    Visit 
+    %a{:href => 'https://openshift.github.io'} OpenShift Origin on GitHub
+    or view the 
+    %a{:href => 'https://github.com/smarterclayton/openshift-cdk-cart'} source of the Cartridge Development Kit

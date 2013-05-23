@@ -7,28 +7,35 @@ require 'haml'
 require 'forwardable'
 require 'monitor'
 
+ARCHIVE_EXT = ".zip"
+
 helpers do
-  def latest_cart_manifest_url
+  def url_with_path(path)
     u = URI.parse(request.url)
-    u.path = '/cartridge.yml'
+    u.path = path
     u.query = nil
     u.fragment = nil
-    u.to_s  end
+    u
+  end
+
+  def latest_cart_manifest_url
+    url_with_path('/cartridge.yml')
+  end
 
   def cart_manifest_url(commit='master')
-    u = URI.parse(request.url)
-    u.path = "/manifest/#{commit}"
-    u.query = nil
-    u.fragment = nil
-    u.to_s
+    url_with_path("/manifest/#{commit}")
+  end
+
+  def cart_build_manifest_url(commit)
+    url_with_path("/build/manifest/#{commit}")
   end
 
   def cart_archive_url(name, commit)
-    url = URI.parse(request.url)
-    url.path = "/archive/#{URI.escape(commit)}/#{URI.escape(name)}.zip"
-    url.query = nil
-    url.fragment = nil
-    url.to_s    
+    url_with_path("/archive/#{URI.escape(commit)}/#{URI.escape(name)}.zip")
+  end
+
+  def cart_build_url(name, commit)
+    url_with_path("/build/archive/#{URI.escape(commit)}/#{URI.escape(name)}#{ARCHIVE_EXT}")
   end
 
   def repo_path
@@ -47,9 +54,6 @@ helpers do
   def build_root_dir
     ENV['OPENSHIFT_DATA_DIR'] || '/tmp'
   end
-  def build_dir(commit)
-    "#{build_root_dir}/#{commit}"
-  end
 end
 
 get '/' do
@@ -67,24 +71,62 @@ get '/cartridge.yml' do
   cart.manifest_with_source(cart_archive_url(cart.name, cart.commit))
 end
 
-get '/build/:commit' do
+get '/build/archive/:commit/*?' do
   cart = CartInstance.find(repo, params[:commit])
+  return [400, "This version of the cart is not buildable (it has no .openshift/action_hooks/build file)."] unless cart.buildable?
 
-  tmpdir = build_dir(cart.commit)
-  Dir.chdir(repo.dir) do
+  commit = cart.commit
+  dir = BuildDirectory.new(build_root_dir)
+  return [404, "There is no build for this commit"] unless dir.has_build?(commit)  
+
+  send_file dir.build_path(commit)
+end
+
+post '/build' do
+  cart = CartInstance.find(repo, params[:commit])
+  return [400, "This version of the cart is not buildable (it has no .openshift/action_hooks/build file)."] unless cart.buildable?
+
+  commit = cart.commit
+  
+  dir = BuildDirectory.new(build_root_dir)
+  if dir.has_build?(commit)
+    [200, "A build already exists for this commit"]
+  else
+    headers 'Content-Type' => 'text/plain'
+    tmpdir = dir.working_dir(commit)
+    destination = dir.build_path(commit)
     ShellJob.new(<<-END).run
       set -e
       {
       (
+        echo "Build of commit #{commit} starting now ..."
+        echo
+        cd #{repo.dir}
         flock -n -e 200
         # prepare directory
         mkdir -p #{tmpdir}
-        git archive --format=tar #{cart.commit} | (cd #{tmpdir} && tar --warning=no-timestamp -xf -)
+        git archive --format=tar #{commit} | (cd #{tmpdir} && tar --warning=no-timestamp -xf -)
 
         # build
         cd #{tmpdir}
         ./.openshift/action_hooks/build
-        touch .success
+
+        echo
+        echo "Creating build archive ..."
+
+        set +e
+        if ( zip -r #{destination} * ); then
+          rm -rf #{tmpdir}
+        else
+          rm -rf #{tmpdir}
+          echo "Build failed"
+          exit 1
+        fi
+        set -e
+
+        du -h #{destination}
+        echo 
+        echo "Build complete"
 
       ) 200>/tmp/cdk_build.lock
       } 2>&1
@@ -103,11 +145,18 @@ get '/manifest/:commit' do
   cart.manifest_with_source(cart_archive_url(cart.name, cart.commit))
 end
 
+get '/build/manifest/:commit' do
+  cart = CartInstance.find(repo, params[:commit])
+
+  headers 'Content-Type' => 'text/plain'
+  cart.manifest_with_source(cart_build_url(cart.name, cart.commit))
+end
+
 get '/archive/:commit/:name.?:format?' do
   commit = params[:commit] || 'master'
   format = {'zip' => :zip, 'tar.gz' => :'tar.gz'}[params[:format]]
 
-  redirect "/archive/#{URI.escape(commit)}/#{URI.escape(params[:name])}.zip" unless format
+  redirect "/archive/#{URI.escape(commit)}/#{URI.escape(params[:name])}.tar.gz" unless format
 
   CartInstance.find(repo, commit).open(format)
 end
@@ -116,14 +165,47 @@ class BuildDirectory
   attr_accessor :dir
 
   def initialize(dir)
-    @dir = dir
+    @dir = File.expand_path(dir)
   end
 
   def builds
-    @builds ||= Dir["#{@dir}/*/.success"].map do |f|
-      File.basename(File.dirname(f))
+    @builds ||= Dir[build_path('*')].map do |f|
+      fname = File.basename(f)
+      commit = commit_for_build(fname)
+      [commit, File.mtime(f), as_human_size(File.size(f))]
     end
   end
+
+  def has_build?(commit)
+    File.exists? build_path(commit)
+  end
+
+  def build_path(commit)
+    File.join(@dir, "build_#{commit}#{ARCHIVE_EXT}")
+  end
+
+  def commit_for_build(name)
+    if m = /\Abuild_(.+)\.zip\Z/.match(name)
+      m[1]
+    end
+  end
+
+  def working_dir(commit)
+    File.join(@dir, "#{commit}")
+  end
+
+  protected
+    PREFIX = %W(TB GB MB KB B).freeze
+
+    def as_human_size( s )
+      s = s.to_f
+      i = PREFIX.length - 1
+      while s > 500 && i > 0
+        i -= 1
+        s /= 1000
+      end
+      ((s > 9 || s.modulo(1) < 0.1 ? '%d' : '%.1f') % s) + ' ' + PREFIX[i]
+    end  
 end
 
 class GitRepo
@@ -149,6 +231,12 @@ class GitRepo
     @recent_branches ||= command("git for-each-ref --sort=-committerdate refs/heads/ --count=#{limit.to_i} --format='%(objectname)\t%(refname:short)\t%(objectname:short)\t%(authorname)\t%(authordate:relative)\t%(subject)'").lines.map{ |l| l.split(/\t/) }
   end
 
+  def referring_to(sha1)
+    check_commit(sha1)
+    (recent_branches.map{ |b| b[0] == sha1 ? b[1] : nil }.compact +
+      command("git tag --points-at #{sha1}").lines.to_a - [sha1]).uniq.sort
+  end
+
   def archive(ref, format=:zip)
     check_commit(ref)
     Dir.chdir(dir){ IO.popen("git archive --format=#{format} #{ref}") }
@@ -161,8 +249,7 @@ class GitRepo
 
   def contents(path, ref=branch)
     check_commit(ref)
-    path = URI.parse(path).path
-    raise InvalidPath if path.nil? or path.start_with?('/')
+    path = check_path(path)    
     m = Dir.chdir(dir) do 
       spec = "#{ref}:#{path}"
       contents = `git show #{spec}`
@@ -171,11 +258,24 @@ class GitRepo
     end
   end
 
+  def has_path(path, ref=branch)
+    check_commit(ref)
+    path = check_path(path)
+    Dir.chdir(dir){ `git cat-file -e #{ref}:#{path} 2>/dev/null` }
+    $? == 0
+  end
+
   protected
     COMMIT_ID = %r(\A[a-zA-Z_\-0-9\./]{1,50}\Z)
 
     def check_commit(*commits)
       commits.each{ |commit| raise IllegalCommitArgument, commit unless commit =~ COMMIT_ID }
+    end
+
+    def check_path(path)
+      path = URI.parse(path).path
+      raise InvalidPath if path.nil? or path.start_with?('/')
+      path
     end
 
     def command(command, exc=InvalidRepo, exc_arg=nil)
@@ -215,6 +315,10 @@ class CartInstance
     end
     m['Source-Url'] = source.to_s
     m.to_yaml.gsub(/\A---\n/,'')
+  end
+
+  def buildable?
+    @buildable ||= gitrepo.has_path('.openshift/action_hooks/build', commit)
   end
 
   class Manifest
