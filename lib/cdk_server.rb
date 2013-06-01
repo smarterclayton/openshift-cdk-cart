@@ -38,6 +38,13 @@ helpers do
     url_with_path("/build/archive/#{URI.escape(commit)}/#{URI.escape(name)}#{ARCHIVE_EXT}")
   end
 
+  def cdk_password
+    @cdk_password ||= begin
+      s = ENV['CDK_PASSWORD']
+      s.empty? ? nil : s
+    end
+  end
+
   def repo_path
     ENV['REPO_PATH'] || "#{ENV['OPENSHIFT_HOMEDIR']}/git/#{ENV['OPENSHIFT_APP_NAME']}.git"
   end
@@ -54,15 +61,29 @@ helpers do
   def build_root_dir
     ENV['OPENSHIFT_DATA_DIR'] || '/tmp'
   end
+
+  def protected!
+    return if authorized?
+    headers['WWW-Authenticate'] = 'Basic realm="admin/CDK_PASSWORD"'
+    halt 401, "Not authorized, please login with 'admin' and the value of the CDK_PASSWORD environment variable\n"
+  end
+
+  def authorized?
+    return true if cdk_password.nil? 
+    @auth ||=  Rack::Auth::Basic::Request.new(request.env)
+    @auth.provided? and @auth.basic? and @auth.credentials and @auth.credentials == ['admin', cdk_password]
+  end  
 end
 
 get '/' do
+  redirect "/cartridge.yml" if request.env['HTTP_X_OPENSHIFT_CARTRIDGE_DOWNLOAD']
+
   commit = params[:from] || 'master'
   gitrepo = GitRepo.new(repo_path, commit)
   cart = CartInstance.find(gitrepo, commit) rescue nil
   dir = BuildDirectory.new(build_root_dir)
 
-  haml :index, :format => :html5, :locals => {:cart => cart, :repo => gitrepo, :from => commit, :builds => dir.builds }
+  haml :index, :format => :html5, :locals => {:cart => cart, :repo => gitrepo, :from => commit, :builds => dir.builds, :has_password => !cdk_password.nil? }
 end
 
 get '/cartridge.yml' do
@@ -84,6 +105,8 @@ get '/build/archive/:commit/*?' do
 end
 
 post '/build' do
+  protected!
+
   cart = CartInstance.find(repo, params[:commit])
   return [400, "This version of the cart is not buildable (it has no .openshift/action_hooks/build file)."] unless cart.buildable?
 

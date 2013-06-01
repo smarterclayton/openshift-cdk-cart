@@ -26,15 +26,26 @@ The best reference right now is the [cartridge writers guide](https://github.com
 
 If your cart needs to compile source into binaries in order to run on OpenShift, you'll want to execute a build. Like any other OpenShift application, your build hook is at <code>.openshift/action_hooks/build</code>. After checking in a build script and pushing your changes to the app, hit the app in the web. 
 
-You'll see a 'Builds' section with a form.  In the form, enter the version of the cart you want to build (usually your master branch, but could be any other commit) and hit "Build Now".  The CDK will build your cart and display any output directly in the browser.  The build will be stored on disk in your app. 
+You'll see a 'Builds' section with a form.  In the form, enter the version of the cart you want to build (usually your master branch, but could be any other commit) and hit "Build Now".  
+
+By default, the CDK generates a password for you when you install it.  This prevents people from running builds arbitrarily.  The password is stored in the gear as an environment variable - to see it run:
+
+    $ rhc ssh mycart
+    Connecting to ....
+    $ echo $CDK_PASSWORD
+    lotsofrandomcharacters
+
+When prompted for your password, enter "admin" as the user and the value you printed above as your password.
+
+The CDK will now build your cart and display any output directly in the browser.  The build will be stored on disk in your app. 
 
 Hit back and refresh the CDK page to get the latest build. Copy the build link and use it to create another app:
 
-   rhc create-app myapp <build_link>
+    rhc create-app myapp <build_link>
    
 or
 
-   rhc add-cartridge <build_link> -a myapp
+    rhc add-cartridge <build_link> -a myapp
 
 If you want to debug the output of a build, SSH in to your app and run the build script manually:
 
@@ -45,7 +56,6 @@ If you want to debug the output of a build, SSH in to your app and run the build
 
 ## Future Features
 
-* Security (at a minimum BASIC auth required to do builds)
 * Check your manifest for syntax errors and other common problems
 * Example cart manifests for different types of carts
 * Helpful scripts you can run while in the gear to debug problems or test changes

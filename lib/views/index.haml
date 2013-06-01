@@ -37,6 +37,10 @@
                 #{refers.join(', ')}
             %td= build[1]
             %td= build[2]
+
+    - if has_password
+      .alert.alert-warning Creating a build is password protected. Your password is stored in the gear under the environment variable CDK_PASSWORD, and the user name is "admin"
+
     %form.form-inline{:action => url('/build'), :method => :post}
       %input{:type => :text, :style => 'width: 20em', :name => 'commit', :placeholder => 'Commit SHA1, tag, or branch'}
       %input.btn{:type => :submit, :value => 'Build now'}
