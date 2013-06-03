@@ -40,7 +40,7 @@ helpers do
 
   def cdk_password
     @cdk_password ||= begin
-      s = ENV['CDK_PASSWORD']
+      s = ENV['CDK_PASSWORD'] || ""
       s.empty? ? nil : s
     end
   end
@@ -258,7 +258,9 @@ class GitRepo
   def referring_to(sha1)
     check_commit(sha1)
     (recent_branches.map{ |b| b[0] == sha1 ? b[1] : nil }.compact +
-      command("git tag --points-at #{sha1}").lines.to_a - [sha1]).uniq.sort
+      command("git tag --points-at #{sha1}", UnknownCommit).lines.to_a - [sha1]).uniq.sort
+  rescue UnknownCommit
+    []
   end
 
   def archive(ref, format=:zip)
