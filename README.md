@@ -6,17 +6,13 @@ Make building and testing cartridges easy on OpenShift.  The CDK runs as a cartr
 
 To get started, create a new app in OpenShift that uses the CDK cart:
 
-    rhc create-app mycart http://cdk-claytondev.rhcloud.com/cartridge.yml
+    rhc create-app mycart http://cdk-claytondev.rhcloud.com
     
-Once the app is created, check your cartridge source code into the Git repository.  For example, if you wanted to fork the [Go cartridge](https://github.com/smarterclayton/openshift-go-cart):
+Once the app is created, check your cartridge source code into the Git repository.  If you want to fork an existing cartridge, just use the `--from-code` option.  For example, if you wanted to fork the [Go cartridge](https://github.com/smarterclayton/openshift-go-cart):
 
-    cd mycart
-    git remote add gocart git@github.com:smarterclayton/openshift-go-cart.git
-    git fetch gocart
-    git pull -s recursive -X theirs gocart master
-    git push origin master
+    rhc create-app mycart http://cdk-claytondev.rhcloud.com --from-code=git://github.com/smarterclayton/openshift-go-cart.git
     
-After the Git push completes you can visit your CDK app in the web, and you'll see information about your Git repository.  The CDK will automatically check for your cartridge manifest.yml or your build script.
+After the create completes you can visit your CDK app in the web, and you'll see information about your Git repository.  The CDK will show info about your cart by reading your manifest.yml and build scripts.
 
 ## Creating your own cart
 
