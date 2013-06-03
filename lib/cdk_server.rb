@@ -345,6 +345,10 @@ class CartInstance
     @buildable ||= gitrepo.has_path('.openshift/action_hooks/build', commit)
   end
 
+  def open(format=:zip)
+    gitrepo.archive(commit, format)
+  end
+
   class Manifest
     def self.parse(contents)
       yaml = YAML.load(contents, nil, :safe => true, :raise_on_unknown_tag => true) or raise EmptyManifest
