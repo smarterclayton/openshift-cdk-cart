@@ -258,9 +258,7 @@ class GitRepo
   def referring_to(sha1)
     check_commit(sha1)
     (recent_branches.map{ |b| b[0] == sha1 ? b[1] : nil }.compact +
-      command("git tag --points-at #{sha1}", UnknownCommit).lines.to_a - [sha1]).uniq.sort
-  rescue UnknownCommit
-    []
+      command("git for-each-ref --format='%(objectname) %(refname:short)' refs/tags/").lines.to_a.map{ |l| l.split(/ /) }.select{ |t| t[0] == sha1 }.map{ |t| t[1] } - [sha1]).uniq.sort
   end
 
   def archive(ref, format=:zip)
