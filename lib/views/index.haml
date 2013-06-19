@@ -49,17 +49,35 @@
     %p The cartridge on this branch does not have a build script at <code>.openshift/action_hooks/build</code>
 
 - else
+  - if from
+    .alert.alert-warning 
+      You are viewing a specific Git version:
+      %a{:href => url("/?from=#{URI.escape(from)}")}>= from
+      ="."
+      There is no manifest for this branch.
+  - else
+    .alert.alert-warning You must check in cartridge manifest at <code>metadata/manifest.yml</code> into your Git repository.
+
+
   %p 
-    This application helps you build carts. To get started, deploy an instance of this cart to OpenShift with:
+    This application helps you build carts. You can deploy your own instance of this cartridge with:
 
   %pre
-    rhc create-app cdk http://cdk-claytondev.rhcloud.com/cartridge.yml
+    rhc create-app cdk http://cdk-claytondev.rhcloud.com
 
   %p
-    Once you've deployed, you should see this page.  You can check your changes into the application via Git, and then deploy the latest via:
+    Once you've deployed, you should see this page.  You'll need to create a manifest for this cartridge and push it to your Git repo under <code>metadata/manifest.yml</code>.
 
   %pre
-    rhc create-app mynewcart #{latest_cart_manifest_url}
+    :preserve
+      $ touch metadata/manifest.yml
+      $ vim metadata/manifest.yml
+      ... edit file contents ...
+      $ git add . && git commit -m "Added manifest"
+      $ git push origin master
+
+  %p
+    For more information on building cartridges, see <a href="https://www.openshift.com/developers/extend">Extending OpenShift</a>.
 
 %h3 Source Versions
 
