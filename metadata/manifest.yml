@@ -8,6 +8,7 @@ Cartridge-Vendor: smarterclayton
 Categories:
   - service
   - web_framework
+  - ci_builder
 Provides:
   - cdk-1.0
   - "cdk"
@@ -17,6 +18,7 @@ Scaling:
 Group-Overrides:
   - components:
     - cdk-1.0
+Install-Build-Required: false
 Endpoints:
   - Private-IP-Name:   IP
     Private-Port-Name: PORT
