@@ -3,7 +3,7 @@ Cartridge-Short-Name: CDK
 Display-Name: OpenShift Cartridge Development Kit
 Version: "1.0"
 Website: https://github.com/smarterclayton/openshift-cdk-cart
-Cartridge-Version: 0.0.1
+Cartridge-Version: 0.1.0
 Cartridge-Vendor: smarterclayton
 Categories:
   - service

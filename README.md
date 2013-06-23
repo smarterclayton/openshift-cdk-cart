@@ -26,9 +26,7 @@ You'll see a 'Builds' section with a form.  In the form, enter the version of th
 
 By default, the CDK generates a password for you when you install it.  This prevents people from running builds arbitrarily.  The password is stored in the gear as an environment variable - to see it run:
 
-    $ rhc ssh mycart
-    Connecting to ....
-    $ echo $CDK_PASSWORD
+    $ rhc ssh mycart --gears 'env | grep CDK_PASSWORD'
     lotsofrandomcharacters
 
 When prompted for your password, enter "admin" as the user and the value you printed above as your password.
