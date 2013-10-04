@@ -9,7 +9,7 @@
   %p Deploy now with:
 
   %pre
-    rhc create-app mynewcart #{cart_manifest_url(cart.commit)}
+    rhc create-app mynewcart #{cart_build_manifest_url(cart.commit)}
 
   - if cart.buildable?
 
@@ -17,7 +17,7 @@
 
     - if builds.empty?
       %p There are no builds yet for this cartridge.
-      
+
     - else
       %p Your cartridge has a build script.  The built versions are displayed below.
 
@@ -126,14 +126,14 @@
       %td= col[4]
 
 %p
-  You can deploy any version of your cartridge by adding a Git commit SHA1, branch, or tag to the path.  
+  You can deploy any built version of your cartridge by adding a Git commit SHA1, branch, or tag to the path.  
 
 %pre
-  rhc create-app mynewcart #{cart_manifest_url(':commit_or_tag_or_branch')}
+  rhc create-app mynewcart #{cart_build_manifest_url(':commit_or_tag_or_branch')}
 
 %p
   Try it now:
-%form.form-inline{:action => url('/manifest'), :method => :post}
+%form.form-inline{:action => url('/build/manifest'), :method => :post}
   %input{:type => :text, :style => 'width: 20em', :name => 'commit', :placeholder => 'Commit SHA1, tag, or branch'}
   %input.btn{:type => :submit, :value => 'Get Manifest'}
 
