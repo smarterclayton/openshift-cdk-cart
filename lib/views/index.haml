@@ -92,6 +92,7 @@
       %th Author
       %th Date
       %th Subject
+      %th Build Link
   - repo.recent_branches(30).each do |col|
     %tr
       %td
@@ -106,6 +107,11 @@
       %td= col[3]
       %td= col[4]
       %td= col[5]
+      %td
+        - if has_password
+          %form.form-inline{:action => url('/build'), :method => :post}
+            %input{:type => :hidden, :name => 'commit', :value => col[1]}
+          %input.btn{:type => :submit, :value => 'Build now'}
 
 %p
   Commit log up to <strong>#{from}</strong>
