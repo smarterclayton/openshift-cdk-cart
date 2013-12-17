@@ -1,5 +1,9 @@
 #!/bin/bash
 
+echo "Deliberate failure"
+echo "Stderr output" 1>&2
+exit 1
+
 STOPTIMEOUT=10
 FMT="%a %b %d %Y %H:%M:%S GMT%z (%Z)"
 PUMA_STATE=$OPENSHIFT_CDK_DIR/pid/puma.state
