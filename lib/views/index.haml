@@ -6,12 +6,18 @@
   %p
     %a{:href => cart_manifest_url(cart.commit)} View cartridge manifest for <strong>#{from}</strong>
 
-  %p Deploy now with:
+  - if not cart.buildable?
+    %p Deploy now with:
 
-  %pre
-    rhc create-app mynewcart #{cart_build_manifest_url(cart.commit)}
+    %pre
+      rhc create-app mynewcart #{cart_build_manifest_url(cart.commit)}
 
   - if cart.buildable?
+    - if not builds.empty?
+      %p Deploy now with:
+
+      %pre
+        rhc create-app mynewcart #{cart_build_manifest_url(builds.sort { |x,y| y[1] <=> x[1] }[0][0])}
 
     %h3 Built Versions
 
@@ -28,7 +34,7 @@
             %th Tags/Branches
             %th Date built
             %th Size
-        - builds.each do |build|
+        - builds.sort { |x,y| y[1] <=> x[1] }.each do |build|
           %tr
             %td{:title => build[0]}
               %a{:href => cart_build_manifest_url(build[0])}= build[0][0,9]
