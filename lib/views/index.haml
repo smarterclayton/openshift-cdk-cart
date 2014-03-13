@@ -6,18 +6,24 @@
   %p
     %a{:href => cart_manifest_url(cart.commit)} View cartridge manifest for <strong>#{from}</strong>
 
-  %p Deploy now with:
+  - if not cart.buildable?
+    %p Deploy now with:
 
-  %pre
-    rhc create-app mynewcart #{cart_manifest_url(cart.commit)}
+    %pre
+      rhc create-app mynewcart #{cart_build_manifest_url(cart.commit)}
 
   - if cart.buildable?
+    - if not builds.empty?
+      %p Deploy now with:
+
+      %pre
+        rhc create-app mynewcart #{cart_build_manifest_url(builds.sort { |x,y| y[1] <=> x[1] }[0][0])}
 
     %h3 Built Versions
 
     - if builds.empty?
       %p There are no builds yet for this cartridge.
-      
+
     - else
       %p Your cartridge has a build script.  The built versions are displayed below.
 
@@ -28,7 +34,7 @@
             %th Tags/Branches
             %th Date built
             %th Size
-        - builds.each do |build|
+        - builds.sort { |x,y| y[1] <=> x[1] }.each do |build|
           %tr
             %td{:title => build[0]}
               %a{:href => cart_build_manifest_url(build[0])}= build[0][0,9]
@@ -92,6 +98,7 @@
       %th Author
       %th Date
       %th Subject
+      %th Build Link
   - repo.recent_branches(30).each do |col|
     %tr
       %td
@@ -106,6 +113,11 @@
       %td= col[3]
       %td= col[4]
       %td= col[5]
+      %td
+        - if has_password
+          %form.form-inline{:action => url('/build'), :method => :post}
+            %input{:type => :hidden, :name => 'commit', :value => col[1]}
+          %input.btn{:type => :submit, :value => 'Build now'}
 
 %p
   Commit log up to <strong>#{from}</strong>
@@ -126,14 +138,14 @@
       %td= col[4]
 
 %p
-  You can deploy any version of your cartridge by adding a Git commit SHA1, branch, or tag to the path.  
+  You can deploy any built version of your cartridge by adding a Git commit SHA1, branch, or tag to the path.  
 
 %pre
-  rhc create-app mynewcart #{cart_manifest_url(':commit_or_tag_or_branch')}
+  rhc create-app mynewcart #{cart_build_manifest_url(':commit_or_tag_or_branch')}
 
 %p
   Try it now:
-%form.form-inline{:action => url('/manifest'), :method => :post}
+%form.form-inline{:action => url('/build/manifest'), :method => :post}
   %input{:type => :text, :style => 'width: 20em', :name => 'commit', :placeholder => 'Commit SHA1, tag, or branch'}
   %input.btn{:type => :submit, :value => 'Get Manifest'}
 
